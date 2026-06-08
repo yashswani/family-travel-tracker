@@ -50,33 +50,36 @@ app.get('/', async (req, res) => {
     });
 });
 app.post('/add', async (req, res) => {
-    const input = req.body['country'];
+    const input = req.body.country?.trim();
+
     try {
         const result = await db.query(
-            'SELECT country_code FROM countries WHERE LOWER(country_name) = $1',
-            [input.toLowerCase()],
-        );
-        const data = result.rows[0];
-        const countryCode = data.country_code;
-        const alreadyVisited = await db.query(
-            'SELECT * FROM visited_countries WHERE country_code = $1 AND user_id = $2',
-            [countryCode, currentUserId],
+            "SELECT country_code FROM countries WHERE LOWER(country_name) LIKE '%' || $1 || '%';",
+            [input.toLowerCase()]
         );
 
-        if (alreadyVisited.rows.length > 0) {
-            return res.redirect('/');
+        if (result.rows.length === 0) {
+            console.log("Country not found:", input);
+            return res.redirect("/");
         }
+
+        const countryCode = result.rows[0].country_code;
+
         try {
             await db.query(
-                'INSERT INTO visited_countries (country_code,user_id) VALUES ($1,$2)',
-                [countryCode, currentUserId],
+                'INSERT INTO visited_countries (country_code, user_id) VALUES ($1, $2)',
+                [countryCode, currentUserId]
             );
-            res.redirect('/');
+
+            res.redirect("/");
         } catch (err) {
-            console.log(err);
+            console.log("Insert error:", err);
+            res.redirect("/");
         }
+
     } catch (err) {
-        console.log(err);
+        console.log("Search error:", err);
+        res.redirect("/");
     }
 });
 app.post('/user', async (req, res) => {
